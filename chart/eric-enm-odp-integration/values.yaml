@@ -1,0 +1,183 @@
+global:
+  registry:
+    url: armdocker.rnd.ericsson.se
+  pullSecret:
+  timezone: UTC
+## Replicas for each sts or deploy
+replicas-eric-odp-token-service: 1
+replicas-eric-odp-cron-operator: 1
+replicas-eric-odp-factory: 1
+
+## Library
+eric-enm-common-helmchart-library:
+  enabled: true
+
+## Components
+eric-odp-token-service:
+  enabled: false
+
+## Credm
+jobs:
+  jobAction: certrequest
+  ContainerName: eric-enm-credm-controller
+  port: 5001
+  certRequest:
+    imageName: enm-certrequestjob-container
+    pullPolicy: Always
+    tag: 1.51.0-41
+    resources:
+      requests:
+        enabled: true
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        enabled: true
+        cpu: 1000m
+        memory: 512Mi
+
+imageCredentials:
+  repoPath: proj-enm
+  pullPolicy: Always
+
+eric-odp-cron-operator:
+  enabled: false
+  global:
+    security:
+      tls:
+        enabled: false
+
+eric-odp-factory:
+  annotations:
+    prometheus.io/scrape: "true"
+
+  ldap:
+    url: "ldaps://ldap-local:1636/"
+    userQuery: "(uid=%s)"
+    userAttrs: "uidNumber,gidNumber"
+    groupAttrs: "cn,gidNumber"
+
+  tokenservice:
+    url: "http://eric-odp-token-service:8080/odp-token"
+
+  extraVolumes:
+    - name: global-properties
+      configMap:
+          name: gp-odp-factory
+    - name: tor-data
+      persistentVolumeClaim:
+        claimName: eric-enm-rwxpvc-data
+
+  extraVolumeMounts:
+    - name: tor-data
+      mountPath: /ericsson/tor/data
+
+  extraEnv:
+    - name: LDAP_TLS_CA
+      value: "/ericsson/tor/data/certificates/rootCA.pem"
+    - name: LDAP_USER_BASE_DN
+      valueFrom:
+        configMapKeyRef:
+          name: gp-odp-factory
+          key: LDAP_USER_BASE_DN
+    - name: LDAP_GROUP_BASE_DN
+      valueFrom:
+        configMapKeyRef:
+          name: gp-odp-factory
+          key: LDAP_GROUP_BASE_DN
+    - name: LDAP_GROUP_QUERY
+      valueFrom:
+        configMapKeyRef:
+          name: gp-odp-factory
+          key: LDAP_GROUP_QUERY
+
+eric-amos-odp-ssh-broker:
+    service:
+      name: eric-amos-odp-ssh-broker
+      nameOverride: eric-amos-odp-ssh-broker
+      version: 1.0.19-1
+    ssh:
+      applications:
+        - application: amos-broker
+          port: 2200
+    extraVolumeMounts:
+    - name: certreq-secret-1
+      mountPath: /ericsson/credm/certReqMount
+    - name: cert-volume
+      mountPath: /ericsson/credm/tlsMount/
+    - name: ssh-host-key-volume
+      mountPath: "/tmp/ssh-host-key/"
+    extraVolumes:
+    - name: ssh-host-key-volume
+      emptyDir:
+        sizeLimit: "5Mi"
+    - name: certreq-secret-1
+      secret:
+        secretName: eric-amos-odp-ssh-broker-certreq-secret-1
+    - name: cert-volume
+      projected:
+        sources:
+            - secret:
+                name: eric-amos-odp-ssh-broker-tls-secret-1
+                items:
+                - key: tlsStoreData
+                  path: factory.key
+            - secret:
+                name: eric-amos-odp-ssh-broker-tls-secret-2
+                items:
+                - key: tlsStoreData
+                  path: factory.crt
+            - secret:
+                name: eric-amos-odp-ssh-broker-tls-secret-3
+                items:
+                - key: tlsStoreData
+                  path: factoryCA.crt
+            - secret:
+                name: eric-amos-odp-ssh-broker-tls-secret-4
+                items:
+                - key: tlsStoreData
+                  path: ssoCA.crt
+    extraInitContainers:
+    - command:
+      env:
+        - name: XML_MOUNT_PATH
+          value: /ericsson/credm/certReqMount
+        - name: SERVICE_NAME
+          value: eric-amos-odp-ssh-broker
+      image: armdocker.rnd.ericsson.se/proj_oss_releases/enm/enm-wait-for-certificates-container:1.50.0-45
+      imagePullPolicy: Always
+      name: amos-ssh-odp-broker-services-waitforcerts
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+      volumeMounts:
+        - mountPath: /ericsson/credm/certReqMount/xml
+          name: certreq-secret-1
+          readOnly: true
+    - name: ssh-host-key-converter
+      image: armdocker.rnd.ericsson.se/proj_oss_releases/enm/eric-enm-init-container:1.62.0-15
+      command: [ "/bin/sh", "-c" ]
+      args:
+        - |
+          openssl rsa -in /tmp/secrets/factory.key -out /tmp/ssh-host-key/id_rsa 
+          chmod 444 /tmp/ssh-host-key/id_rsa
+      volumeMounts:
+        - name: ssh-host-key-volume
+          mountPath: /tmp/ssh-host-key/
+        - name: cert-volume
+          mountPath: /tmp/secrets/
+    extraEnv:
+      - name: FACTORY_CERT_FILE
+        value: "/ericsson/credm/tlsMount/factory.crt"
+      - name: FACTORY_KEY_FILE
+        value: "/ericsson/credm/tlsMount/factory.key"
+      - name: FACTORY_CA_FILE
+        value: "/ericsson/credm/tlsMount/factoryCA.crt"
+      - name: SSO_CA_FILE
+        value: "/ericsson/credm/tlsMount/ssoCA.crt"
+      - name: SSH_HOST_KEY_FILE
+        value: "/tmp/ssh-host-key/id_rsa"

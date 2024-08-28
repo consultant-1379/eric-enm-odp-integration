@@ -1,0 +1,19 @@
+apiVersion: v2
+appVersion: '1.0'
+dependencies:
+- name: eric-odp-cron-operator
+  repository: https://arm.seli.gic.ericsson.se/artifactory/proj-eric-odp-drop-helm-local
+  version: 1.30.0-1
+- name: eric-odp-factory
+  repository: https://arm.seli.gic.ericsson.se/artifactory/proj-eric-odp-drop-helm-local
+  version: 1.40.0-1
+- name: eric-odp-token-service
+  repository: https://arm.seli.gic.ericsson.se/artifactory/proj-eric-odp-drop-helm-local
+  version: 1.8.0-1
+- alias: eric-amos-odp-ssh-broker
+  name: eric-odp-ssh-broker
+  repository: https://arm.seli.gic.ericsson.se/artifactory/proj-eric-odp-drop-helm-local
+  version: 0.14.0-2
+description: A Helm chart for eric-enm-stateless-integration
+name: eric-enm-odp-integration
+version: 1.1.0-27

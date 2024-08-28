@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gp-odp-factory
+  annotations:
+data:
+  LDAP_USER_BASE_DN: "ou=people,{{ .Values.global.enmProperties.COM_INF_LDAP_ROOT_SUFFIX }}"
+  LDAP_GROUP_BASE_DN: "ou=groups,{{ .Values.global.enmProperties.COM_INF_LDAP_ROOT_SUFFIX }}"
+  LDAP_GROUP_QUERY: "(uniqueMember=uid=%s,ou=people,{{ .Values.global.enmProperties.COM_INF_LDAP_ROOT_SUFFIX }})"

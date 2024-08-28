@@ -1,0 +1,64 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ index .Values "eric-amos-odp-ssh-broker" "service" "name" }}-controller-certrequest-job"
+  labels:
+    app.kubernetes.io/name: "{{ index .Values "eric-amos-odp-ssh-broker" "service" "name" }}-controller-certrequest-job"
+    app.kubernetes.io/instance: "{{ index .Values "eric-amos-odp-ssh-broker" "service" "name" }}"
+    app.kubernetes.io/version: "{{ index .Values "eric-amos-odp-ssh-broker" "service" "name" }}-{{ index .Values "eric-amos-odp-ssh-broker" "service" "version" }}"
+
+  annotations:
+    ericsson.com/product-name: helm-eric-enmsg-amos-odp
+    ericsson.com/product-number: CXC 174 2009
+    ericsson.com/product-revision: RSTATE
+spec:
+  completions: 1
+  parallelism: 1
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: amos-odp-services-credm-controller-certrequest
+          image: "{{ .Values.global.registry.url }}/{{ .Values.imageCredentials.repoPath }}/{{ .Values.jobs.certRequest.imageName }}:{{ .Values.jobs.certRequest.tag }}"
+          imagePullPolicy: {{.Values.jobs.certRequest.pullPolicy}}
+          securityContext:
+            allowPrivilegeEscalation: true
+            privileged: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - all
+          command:
+{{- if .Values.jobs.certRequest.resources }}
+          resources:
+{{- if  .Values.jobs.certRequest.resources.requests.enabled }}
+           requests:
+{{- if  .Values.jobs.certRequest.resources.requests.memory }}
+            memory: {{ .Values.jobs.certRequest.resources.requests.memory | quote }}
+{{- end }}
+{{- if  .Values.jobs.certRequest.resources.requests.cpu }}
+            cpu: {{ .Values.jobs.certRequest.resources.requests.cpu | quote }}
+{{- end }}
+{{- end }}
+{{- if  .Values.jobs.certRequest.resources.limits.enabled }}
+           limits:
+{{- if  .Values.jobs.certRequest.resources.limits.memory }}
+            memory: {{ .Values.jobs.certRequest.resources.limits.memory | quote }}
+{{- end }}
+{{- if  .Values.jobs.certRequest.resources.limits.cpu }}
+            cpu: {{ .Values.jobs.certRequest.resources.limits.cpu | quote }}
+{{- end }}
+{{- end }}
+{{- end }}
+          env:
+            - name: CONTROLLER_NAME
+              value: {{.Values.jobs.ContainerName | quote}}
+            - name: CONTROLLER_PORT
+              value: {{.Values.jobs.port | quote}}
+            - name: SERVICENAME
+              value: {{ index .Values "eric-amos-odp-ssh-broker" "service" "name" }}
+            - name: HOOKACTION
+              value: {{ .Values.jobs.jobAction | quote }}
+            - name: HOOKNAME
+              value: "mainservice"
